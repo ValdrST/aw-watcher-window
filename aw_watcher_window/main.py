@@ -76,7 +76,8 @@ def heartbeat_loop(client, bucket_id, poll_time, exclude_title=False):
             # Create current_window event
             data = {
                 "app": current_window["appname"],
-                "title": current_window["title"] if not exclude_title else "excluded"
+                "title": current_window["title"] if not exclude_title else "excluded",
+                "user": current_window["user"]
             }
             current_window_event = Event(timestamp=now, data=data)
 

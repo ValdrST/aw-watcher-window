@@ -1,5 +1,6 @@
 import sys
 from typing import Optional
+import getpass
 
 
 def get_current_window_linux() -> Optional[dict]:
@@ -13,7 +14,7 @@ def get_current_window_linux() -> Optional[dict]:
         cls = xlib.get_window_class(window)
         name = xlib.get_window_name(window)
 
-    return {"appname": cls, "title": name}
+    return {"appname": cls, "title": name,"user":getpass.getuser()}
 
 
 def get_current_window_macos() -> Optional[dict]:
