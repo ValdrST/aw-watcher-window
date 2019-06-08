@@ -5,6 +5,7 @@ import Xlib
 import Xlib.display
 from Xlib.xobject.drawable import Window
 from Xlib import X, Xatom
+import psutil
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +114,13 @@ def get_window_pid(window: Window) -> str:
         # TODO: Needed?
         raise Exception("pid_property was None")
 
+def get_window_user(window: Window) -> str:
+    d = window.get_full_property(NET_WM_NAME, UTF8_STRING)
+    r =  get_window_pid(window)
+    p = psutil.Process(r)
+    u = p.username()
+    return u
+
 
 if __name__ == "__main__":
     from time import sleep
@@ -126,7 +134,8 @@ if __name__ == "__main__":
         else:
             cls = get_window_class(window)
             name = get_window_name(window)
+            user = get_user(window)
         print("name:", name)
         print("class:", cls)
-
+        print("user:",user)
         sleep(1)

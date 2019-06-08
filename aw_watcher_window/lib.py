@@ -1,6 +1,6 @@
 import sys
-from typing import Optional
 import getpass
+from typing import Optional
 
 
 def get_current_window_linux() -> Optional[dict]:
@@ -10,11 +10,14 @@ def get_current_window_linux() -> Optional[dict]:
     if window is None:
         cls = "unknown"
         name = "unknown"
+        user = "unknown"
     else:
         cls = xlib.get_window_class(window)
         name = xlib.get_window_name(window)
+        user = xlib.get_window_user(window)
 
-    return {"appname": cls, "title": name,"user":getpass.getuser()}
+
+    return {"appname": cls, "title": name, "user": user}
 
 
 def get_current_window_macos() -> Optional[dict]:
@@ -23,7 +26,7 @@ def get_current_window_macos() -> Optional[dict]:
     app = macos.getApp(info)
     title = macos.getTitle(info)
 
-    return {"title": title, "appname": app}
+    return {"title": title, "appname": app, "user": getpass.getuser()}
 
 
 def get_current_window_windows() -> Optional[dict]:
@@ -31,13 +34,14 @@ def get_current_window_windows() -> Optional[dict]:
     window_handle = windows.get_active_window_handle()
     app = windows.get_app_name(window_handle)
     title = windows.get_window_title(window_handle)
+    user = getpass.getuser()
 
     if app is None:
         app = "unknown"
     if title is None:
         title = "unknown"
 
-    return {"appname": app, "title": title}
+    return {"appname": app, "title": title, "user": user}
 
 
 def get_current_window() -> Optional[dict]:
