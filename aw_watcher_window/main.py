@@ -3,8 +3,12 @@ import logging
 import traceback
 import sys
 import os
+import platform
 from time import sleep
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from time import sleep
+import os
+import getpass
 
 from aw_core.util import assert_version
 from aw_core.models import Event
@@ -12,22 +16,40 @@ from aw_core.log import setup_logging
 from aw_client import ActivityWatchClient
 
 from .lib import get_current_window
-from .config import load_config
+from .config import load_config, watcher_config
+
+system = platform.system()
+if system == "Windows":
+    from .windows import seconds_since_last_input
+elif system == "Darwin":
+    from .macos import seconds_since_last_input
+elif system == "Linux":
+    from .unix import seconds_since_last_input
+else:
+    raise Exception("Unsupported platform: {}".format(system))
+
 
 logger = logging.getLogger(__name__)
 
+class Settings:
+    def __init__(self, config_section):
+        # Time without input before we're considering the user as AFK
+        self.timeout = config_section.getfloat("timeout")
+        # How often we should poll for input activity
+        self.poll_time = config_section.getfloat("poll_time")
+
+        assert self.timeout >= self.poll_time
 
 def main():
     # Verify python version is >=3.5
     #   req_version is 3.5 due to usage of subprocess.run
     assert_version((3, 5))
-
     if sys.platform.startswith("linux") and ("DISPLAY" not in os.environ or not os.environ["DISPLAY"]):
         raise Exception("DISPLAY environment variable not set")
 
     # Read settings from config
     config = load_config()
-    args = parse_args(default_poll_time=config.getfloat("poll_time"))
+    args = parse_args(default_poll_time=config.getfloat("poll_time"),default_timeout=config.getfloat("timeout"))
 
     setup_logging(name="aw-watcher-window", testing=args.testing, verbose=args.verbose,
                   log_stderr=True, log_file=True)
@@ -42,7 +64,7 @@ def main():
     logger.info("aw-watcher-window started")
     sleep(1)  # wait for server to start
     with client:
-        heartbeat_loop(client, bucket_id, poll_time=args.poll_time, exclude_title=args.exclude_title)
+        heartbeat_loop(client, bucket_id, poll_time=args.poll_time, exclude_title=args.exclude_title, timeout=args.timeout)
 
 
 def parse_args(default_poll_time: float):
@@ -52,10 +74,13 @@ def parse_args(default_poll_time: float):
     parser.add_argument("--exclude-title", dest="exclude_title", action="store_true")
     parser.add_argument("--verbose", dest="verbose", action="store_true")
     parser.add_argument("--poll-time", dest="poll_time", type=float, default=default_poll_time)
+    parser.add_argument("--timeout",dest="timeout", type=float,default=default_timeout)
     return parser.parse_args()
 
 
-def heartbeat_loop(client, bucket_id, poll_time, exclude_title=False):
+
+def heartbeat_loop(client, bucket_id, poll_time, exclude_title=False, timeout):
+    afk = False
     while True:
         if os.getppid() == 1:
             logger.info("window-watcher stopped because parent process died")
@@ -79,12 +104,42 @@ def heartbeat_loop(client, bucket_id, poll_time, exclude_title=False):
                 "title": current_window["title"] if not exclude_title else "excluded",
                 "user": current_window["user"]
             }
-            current_window_event = Event(timestamp=now, data=data)
-
+            seconds_since_input = seconds_since_last_input()
+            last_input = now - timedelta(seconds=seconds_since_input)
+            if afk and seconds_since_last_input < timeout:
+                logger.info("No longer AFK")
+                data["status"] = "afk" if afk else "not-afk"
+                current_window_event = Event(timestamp=last_input, data=data,duration=0)
+                pulsetime = timeout + poll_time
+                client.heartbeat(bucket_id, current_window_event, pulsetime=pulsetime, queued=True)
+                afk = False
+                data["status"] = "afk" if afk else "not-afk"
+                current_window_event = Event(timestamp=last_input, data=data,duration=0)
+                pulsetime = timeout + poll_time
+                client.heartbeat(bucket_id, current_window_event, pulsetime=pulsetime, queued=True)
+            elif not afk and seconds_since_input >= timeout:
+                logger.info("Became AFK")
+                data["status"] = "afk" if afk else "not-afk"
+                current_window_event = Event(timestamp=last_input, data=data,duration=0)
+                pulsetime = timeout + poll_time
+                client.heartbeat(bucket_id, current_window_event, pulsetime=pulsetime, queued=True)
+                afk = True
+                data["status"] = "afk" if afk else "not-afk"
+                current_window_event = Event(timestamp=last_input, data=data,duration=seconds_since_input)
+                pulsetime = timeout + poll_time
+                client.heartbeat(bucket_id, current_window_event, pulsetime=pulsetime, queued=True)
+            else:
+                if afk:
+                    data["status"] = "afk" if afk else "not-afk"
+                    current_window_event = Event(timestamp=last_input, data=data,duration=seconds_since_input)
+                    pulsetime = timeout + poll_time
+                    client.heartbeat(bucket_id, current_window_event, pulsetime=pulsetime, queued=True)
+                else:
+                    data["status"] = "afk" if afk else "not-afk"
+                    current_window_event = Event(timestamp=last_input, data=data,duration=0)
+                    pulsetime = timeout + poll_time
+                    client.heartbeat(bucket_id, current_window_event, pulsetime=pulsetime, queued=True)
             # Set pulsetime to 1 second more than the poll_time
             # This since the loop takes more time than poll_time
             # due to sleep(poll_time).
-            client.heartbeat(bucket_id, current_window_event,
-                             pulsetime=poll_time + 1.0, queued=True)
-
         sleep(poll_time)

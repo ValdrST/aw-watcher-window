@@ -7,9 +7,11 @@ def load_config():
     default_client_config = ConfigParser()
     default_client_config["aw-watcher-window"] = {
         "poll_time": "1.0",
+        "timeout": "180"
     }
     default_client_config["aw-watcher-window-testing"] = {
         "poll_time": "1.0",
+        "timeout": "20"
     }
 
     # TODO: Handle so aw-watcher-window testing gets loaded instead of testing is on

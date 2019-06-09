@@ -1,6 +1,10 @@
 import subprocess
 from subprocess import PIPE
 import os
+import logging
+from Quartz.CoreGraphics import (CGEventSourceSecondsSinceLastEventType,
+                                 kCGEventSourceStateHIDSystemState,
+                                 kCGAnyInputEventType)
 
 
 def getInfo() -> str:
@@ -15,3 +19,6 @@ def getApp(info) -> str:
 
 def getTitle(info) -> str:
     return info.split('","')[1][:-1]
+
+def seconds_since_last_input() -> float:
+    return CGEventSourceSecondsSinceLastEventType(kCGEventSourceStateHIDSystemState, kCGAnyInputEventType)
