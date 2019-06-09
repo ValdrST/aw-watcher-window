@@ -16,7 +16,7 @@ from aw_core.log import setup_logging
 from aw_client import ActivityWatchClient
 
 from .lib import get_current_window
-from .config import load_config, watcher_config
+from .config import load_config
 
 system = platform.system()
 if system == "Windows":
@@ -64,22 +64,21 @@ def main():
     logger.info("aw-watcher-window started")
     sleep(1)  # wait for server to start
     with client:
+        print(args.timeout)
         heartbeat_loop(client, bucket_id, poll_time=args.poll_time, exclude_title=args.exclude_title, timeout=args.timeout)
 
 
-def parse_args(default_poll_time: float):
+def parse_args(default_poll_time: float, default_timeout: float):
     """config contains defaults loaded from the config file"""
     parser = argparse.ArgumentParser("A cross platform window watcher for Activitywatch.\nSupported on: Linux (X11), macOS and Windows.")
     parser.add_argument("--testing", dest="testing", action="store_true")
-    parser.add_argument("--exclude-title", dest="exclude_title", action="store_true")
+    parser.add_argument("--exclude-title", dest="exclude_title", action="store_true",default=False)
     parser.add_argument("--verbose", dest="verbose", action="store_true")
     parser.add_argument("--poll-time", dest="poll_time", type=float, default=default_poll_time)
     parser.add_argument("--timeout",dest="timeout", type=float,default=default_timeout)
     return parser.parse_args()
 
-
-
-def heartbeat_loop(client, bucket_id, poll_time, exclude_title=False, timeout):
+def heartbeat_loop(client, bucket_id, poll_time, exclude_title, timeout):
     afk = False
     while True:
         if os.getppid() == 1:
@@ -106,7 +105,7 @@ def heartbeat_loop(client, bucket_id, poll_time, exclude_title=False, timeout):
             }
             seconds_since_input = seconds_since_last_input()
             last_input = now - timedelta(seconds=seconds_since_input)
-            if afk and seconds_since_last_input < timeout:
+            if afk and seconds_since_input < timeout:
                 logger.info("No longer AFK")
                 data["status"] = "afk" if afk else "not-afk"
                 current_window_event = Event(timestamp=last_input, data=data,duration=0)
