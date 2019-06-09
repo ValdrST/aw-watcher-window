@@ -53,8 +53,8 @@ def main():
 
     setup_logging(name="aw-watcher-window", testing=args.testing, verbose=args.verbose,
                   log_stderr=True, log_file=True)
-
-    client = ActivityWatchClient("aw-watcher-window", testing=args.testing)
+    client = ActivityWatchClient("aw-watcher-window", testing=args.testing, host=args.host, port=args.port)
+    logger.info("connected to {}".format(client.server_address))
 
     bucket_id = "{}_{}".format(client.client_name, client.client_hostname)
     event_type = "currentwindow"
@@ -64,7 +64,6 @@ def main():
     logger.info("aw-watcher-window started")
     sleep(1)  # wait for server to start
     with client:
-        print(args.timeout)
         heartbeat_loop(client, bucket_id, poll_time=args.poll_time, exclude_title=args.exclude_title, timeout=args.timeout)
 
 
@@ -76,6 +75,8 @@ def parse_args(default_poll_time: float, default_timeout: float):
     parser.add_argument("--verbose", dest="verbose", action="store_true")
     parser.add_argument("--poll-time", dest="poll_time", type=float, default=default_poll_time)
     parser.add_argument("--timeout",dest="timeout", type=float,default=default_timeout)
+    parser.add_argument("--host", default=None,help="address of server default 127.0.0.1")
+    parser.add_argument("--port",default=None,help="port of server default 5600")
     return parser.parse_args()
 
 def heartbeat_loop(client, bucket_id, poll_time, exclude_title, timeout):
@@ -93,7 +94,7 @@ def heartbeat_loop(client, bucket_id, poll_time, exclude_title, timeout):
             traceback.print_exc()
             current_window = {"appname": "unknown", "title": "unknown"}
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now()
         if current_window is None:
             logger.debug('Unable to fetch window, trying again on next poll')
         else:
