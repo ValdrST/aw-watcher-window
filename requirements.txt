@@ -1,8 +1,9 @@
-git+https://github.com/ValdrST/aw-core.git@master#egg=aw-core
-git+https://github.com/ValdrST/aw-client.git@master#egg=aw-client
-
+git+git://github.com/ValdrST/aw-core@master#egg=aw-core
+git+git://github.com/ValdrST/aw-client.git@master#egg=aw-client
 wmi; sys_platform == 'win32'
 pypiwin32; sys_platform == 'win32'
 python-xlib; sys_platform == 'linux'
+pyobjc-framework-Quartz; sys_platform == 'darwin'
+osascript; sys_platform == 'darwin'
 psutil
 pyuserinput
